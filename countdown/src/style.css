@@ -19,3 +19,8 @@ body {
 #prologue {
 	image-rendering: pixelated;
 }
+
+@font-face {
+	font-family: 'Tiny5-Regular';
+	src: url('/fonts/Tiny5-Regular.ttf')
+}
