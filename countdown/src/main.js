@@ -15,8 +15,14 @@ let lastTick = 0;
 let stage = "memorizing";
 let draggedTile = null;
 
+const LEVELS = [
+	{ src: "/assets/test.jpg", time: 5 },
+	{ src: "/assets/test2.jpg", time: 4 }, // Magari qui metti un timer più breve per aumentare la sfida!
+	{ src: "/assets/test3.jpg", time: 3 }
+];
+
+let currentLevelIndex = 0;
 const img = new Image();
-img.src = "/assets/test.jpg";
 
 const tiles = [];
 
@@ -58,13 +64,21 @@ function countToZero(timestamp) {
 		ctx.translate(tile.x + tile.w / 2, tile.y + tile.h / 2);
 		ctx.rotate(tile.angle || 0);
 
-		// ctx.fillStyle = "black";
-		// ctx.fillRect(-tile.w / 2, -tile.h / 2, tile.w - 2, tile.h - 2);
+		if (tile === draggedTile) {
+			ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+			ctx.shadowBlur = 15;
+			ctx.shadowOffsetX = 10;
+			ctx.shadowOffsetY = 10;
+			ctx.scale(1.05, 1.05);
+		}
+
+		let gap = (stage === "victory") ? 0 : 2;
 
 		if (img.complete && img.naturalWidth > 0) {
 			ctx.drawImage(
 				img, tile.homeX - OFFSET_X, tile.homeY - OFFSET_Y, tile.w, tile.h,
-				-tile.w / 2, -tile.h / 2, tile.w - 2, tile.h - 2);
+				-tile.w / 2, -tile.h / 2, tile.w - gap, tile.h - gap
+			);
 		} else {
 			ctx.fillStyle = "#222";
 			ctx.fillRect(-tile.w / 2, -tile.h / 2, tile.w - 2, tile.h - 2);
@@ -147,7 +161,7 @@ function getMousePos(e) { // mouseposition
 	const scaleY = canva.height / rect.height;
 	return {
 		x: (e.clientX - rect.left) * scaleX,
-		y: (e.clientY- rect.top) * scaleY
+		y: (e.clientY - rect.top) * scaleY
 	};
 
 }
@@ -158,16 +172,16 @@ window.addEventListener("mousedown", (e) => { // GRAB
 	const mouse = getMousePos(e);
 
 	//cycle from right to left
-	for(let i = tiles.length - 1; i >= 0; i--) {
+	for (let i = tiles.length - 1; i >= 0; i--) {
 		const tile = tiles[i];
 
 		if (tile.placed) continue;
 
 		if (
 			mouse.x >= tile.x &&
-            mouse.x <= tile.x + tile.w &&
-            mouse.y >= tile.y &&
-            mouse.y <= tile.y + tile.h
+			mouse.x <= tile.x + tile.w &&
+			mouse.y >= tile.y &&
+			mouse.y <= tile.y + tile.h
 		) {
 			draggedTile = tile;
 			draggedTile.angle = 0;
@@ -200,10 +214,52 @@ window.addEventListener("mouseup", (e) => { // DROP and SNAP
 		draggedTile.y = draggedTile.homeY;
 		draggedTile.placed = true;
 
-		console.log("Pezzo agganciato?")
+		draggedTile.angle = 0;
 
+		checkWin();
 	}
 
 	//clean 
 	draggedTile = null;
 });
+
+function checkWin() {
+	const isCompleted = tiles.every(tile => tile.placed === true);
+
+	if (isCompleted) {
+		console.log("🎉 LIVELLO COMPLETATO! 🎉");
+		stage = "victory";
+
+		setTimeout(() => {
+			// check if there are other levels
+			if (currentLevelIndex < LEVELS.length - 1) {
+				// next level
+				startLevel(currentLevelIndex + 1);
+			} else {
+				stage = "gameover";
+				console.log("🏆 GIOCO TERMINATO WITH SUCCESS! 🏆");
+			}
+		}, 2500);
+	}
+}
+
+function startLevel(index) {
+	currentLevelIndex = index;
+	const levelData = LEVELS[currentLevelIndex];
+
+	// load new memory
+	img.src = levelData.src;
+
+	// timer for this level
+	countdown = levelData.time;
+	lastTick = 0;
+	stage = "memorizing";
+
+	// back to order
+	tiles.forEach(tile => {
+		tile.x = tile.homeX;
+		tile.y = tile.homeY;
+		tile.placed = true;
+		tile.angle = 0;
+	});
+}
