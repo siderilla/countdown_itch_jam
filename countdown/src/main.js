@@ -13,7 +13,39 @@ const ctx = canva.getContext("2d");
 let countdown = 5;
 let lastTick = 0;
 let stage = "memorizing";
+let draggedTile = null;
+
+const img = new Image();
+img.src = "/assets/test.jpg";
+
+const tiles = [];
+
+for (let row = 0; row < ROWS; row++) {
+
+	for (let col = 0; col < COLS; col++) {
+
+		let x = OFFSET_X + col * TILE_W;
+		let y = OFFSET_Y + row * TILE_H;
+
+		tiles.push({
+			x: x,
+			y: y,
+			homeX: x,
+			homeY: y,
+			w: TILE_W,
+			h: TILE_H,
+			col: col,
+			row: row,
+			placed: true,
+			angle: 0
+		});
+	}
+
+}
+
 function countToZero(timestamp) {
+	//aligns lastTick to actual time
+	if (!lastTick) lastTick = timestamp;
 
 	//background
 	ctx.fillStyle = "grey";
@@ -21,11 +53,25 @@ function countToZero(timestamp) {
 
 	//foreach tiles
 	tiles.forEach(tile => {
+		ctx.save();
 
-		if (!tile.visible) return;
-		ctx.fillStyle = "black";
-		ctx.fillRect(tile.x, tile.y, tile.w - 2, tile.h - 2);
+		ctx.translate(tile.x + tile.w / 2, tile.y + tile.h / 2);
+		ctx.rotate(tile.angle || 0);
 
+		// ctx.fillStyle = "black";
+		// ctx.fillRect(-tile.w / 2, -tile.h / 2, tile.w - 2, tile.h - 2);
+
+		if (img.complete && img.naturalWidth > 0) {
+			ctx.drawImage(
+				img, tile.homeX - OFFSET_X, tile.homeY - OFFSET_Y, tile.w, tile.h,
+				-tile.w / 2, -tile.h / 2, tile.w - 2, tile.h - 2);
+		} else {
+			ctx.fillStyle = "#222";
+			ctx.fillRect(-tile.w / 2, -tile.h / 2, tile.w - 2, tile.h - 2);
+		}
+
+		// restore canva status for next tiles
+		ctx.restore();
 	});
 
 	//draw the countdown
@@ -38,16 +84,14 @@ function countToZero(timestamp) {
 	}
 
 
-	if (timestamp - lastTick >= 1000) {
-
-		lastTick = timestamp;
+	if (stage === "memorizing" && timestamp - lastTick >= 1000) {
 		countdown -= 1;
+		lastTick = timestamp;
+
 		if (countdown === 0) {
 			stage = "puzzle";
-			hideTiles();
+			scatterTiles();
 		}
-		lastTick = timestamp;
-
 	}
 
 	//recall the loop
@@ -57,25 +101,109 @@ function countToZero(timestamp) {
 
 document.fonts.ready.then(() => requestAnimationFrame(countToZero));
 
-const tiles = [];
-
-for (let row = 0; row < ROWS; row++) {
-
-	for (let col = 0; col < COLS; col++) {
-
-		let x = OFFSET_X + col * TILE_W;
-		let y = OFFSET_Y + row * TILE_H;
-		tiles.push({ x: x, y: y, homeX: x, homeY: y, w: TILE_W, h: TILE_H, col: col, row: row, visible: true });
-	
-	}
-
-}
-
 console.log(tiles);
 
-function hideTiles() {
-	for (let i = 0; i < 6; i++) {
-		let hiddenTile = Math.floor(Math.random() * tiles.length);
-		tiles[hiddenTile].visible = false;
+function scatterTiles() {
+
+	let drawed = 0;
+	let attempts = 0;
+
+	// the center of the plate for scattered tiles
+	const TRAY_X = 1000;
+	const TRAY_Y = 300;
+
+	// max random positioning of scattered tiles
+	const JITTER = 50;
+
+	while (drawed < 6 && attempts < 30) {
+
+		let drawedTile = Math.floor(Math.random() * tiles.length);
+
+		if (tiles[drawedTile].placed) {
+
+			let tile = tiles[drawedTile];
+			tile.placed = false;
+
+			// random positioning around the plate
+			tile.x = TRAY_X + (Math.random() * JITTER - JITTER / 2);
+			tile.y = TRAY_Y + (Math.random() * JITTER - JITTER / 2);
+
+			// random rotation (looks realistic)
+			tile.angle = (Math.random() * 30 - 15) * (Math.PI / 180);
+
+			drawed++;
+
+		}
+
+		attempts++;
+
 	}
 }
+
+function getMousePos(e) { // mouseposition
+
+	const rect = canva.getBoundingClientRect();
+	const scaleX = canva.width / rect.width;
+	const scaleY = canva.height / rect.height;
+	return {
+		x: (e.clientX - rect.left) * scaleX,
+		y: (e.clientY- rect.top) * scaleY
+	};
+
+}
+
+window.addEventListener("mousedown", (e) => { // GRAB
+	if (stage !== "puzzle") return; // only in puzzle stage
+
+	const mouse = getMousePos(e);
+
+	//cycle from right to left
+	for(let i = tiles.length - 1; i >= 0; i--) {
+		const tile = tiles[i];
+
+		if (tile.placed) continue;
+
+		if (
+			mouse.x >= tile.x &&
+            mouse.x <= tile.x + tile.w &&
+            mouse.y >= tile.y &&
+            mouse.y <= tile.y + tile.h
+		) {
+			draggedTile = tile;
+			draggedTile.angle = 0;
+			break;
+		}
+	}
+});
+
+window.addEventListener("mousemove", (e) => { // DRAG
+	if (!draggedTile) return;
+
+	const mouse = getMousePos(e);
+
+	// the tile will be centerd to the pointer
+	draggedTile.x = mouse.x - draggedTile.w / 2;
+	draggedTile.y = mouse.y - draggedTile.h / 2;
+});
+
+window.addEventListener("mouseup", (e) => { // DROP and SNAP
+	if (!draggedTile) return;
+
+	//caculate the actual position of the tile and its home position
+	const dx = draggedTile.x - draggedTile.homeX;
+	const dy = draggedTile.y - draggedTile.homeY;
+	const distance = Math.sqrt(dx * dx + dy * dy);
+
+	// if the tile is being released in less than 50 px of distance from its home position will hook up
+	if (distance < 50) {
+		draggedTile.x = draggedTile.homeX;
+		draggedTile.y = draggedTile.homeY;
+		draggedTile.placed = true;
+
+		console.log("Pezzo agganciato?")
+
+	}
+
+	//clean 
+	draggedTile = null;
+});
