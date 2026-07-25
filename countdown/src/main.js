@@ -10,26 +10,56 @@ const OFFSET_Y = 135;
 const canva = document.getElementById("prologue");
 const ctx = canva.getContext("2d");
 
+ctx.imageSmoothingEnabled = false;
+
+let audioEnabled = false;
+const bgMusic = new Audio("/assets/bgm.mp3");
+bgMusic.loop = true;
+
+function toggleAudio() {
+	audioEnabled = !audioEnabled;
+	if (audioEnabled) {
+		bgMusic.play().catch(() => console.log("Your browser is blocking audio source"));
+	} else {
+		bgMusic.pause();
+	}
+}
+
+function playSound(src) {
+	if (!audioEnabled) return;
+	const sfx = new Audio(src);
+	sfx.play().catch(() => { });
+}
+
 let countdown = 5;
 let lastTick = 0;
-let stage = "memorizing";
+let stage = "menu";
 let draggedTile = null;
 
 const LEVELS = [
-	{ src: "/assets/test.jpg", time: 5 },
-	{ src: "/assets/test2.jpg", time: 4 }, // Magari qui metti un timer più breve per aumentare la sfida!
-	{ src: "/assets/test3.jpg", time: 3 }
+	{
+		src: "/assets/memory1.png",
+		time: 5,
+		testo: "Il nostro primo giorno al mare. Il sole picchiava forte..."
+	},
+	{
+		src: "/assets/memory2.png",
+		time: 4,
+		testo: "Quella volta che ci siamo persi nel bosco ma abbiamo trovato quella baita..."
+	},
+	{
+		src: "/assets/memory3.png",
+		time: 3,
+		testo: "L'ultimo tramonto prima di partire. Non lo dimenticherò mai."
+	}
 ];
 
 let currentLevelIndex = 0;
 const img = new Image();
-
 const tiles = [];
 
 for (let row = 0; row < ROWS; row++) {
-
 	for (let col = 0; col < COLS; col++) {
-
 		let x = OFFSET_X + col * TILE_W;
 		let y = OFFSET_Y + row * TILE_H;
 
@@ -46,18 +76,26 @@ for (let row = 0; row < ROWS; row++) {
 			angle: 0
 		});
 	}
-
 }
 
+const UI_BUTTONS = {
+	start: { x: 440, y: 300, w: 400, h: 80, text: "[ START GAME ]" },
+	github: { x: 440, y: 420, w: 400, h: 60, text: "GitHub & Credits" },
+	audio: { x: 1120, y: 20, w: 140, h: 40 }
+};
+
 function countToZero(timestamp) {
-	//aligns lastTick to actual time
+	// aligns lastTick to actual time
 	if (!lastTick) lastTick = timestamp;
 
-	//background
+	// background
 	ctx.fillStyle = "grey";
 	ctx.fillRect(0, 0, 1280, 720);
 
-	//foreach tiles
+	// smoothing is always disabled
+	ctx.imageSmoothingEnabled = false;
+
+	// foreach tiles
 	tiles.forEach(tile => {
 		ctx.save();
 
@@ -75,8 +113,15 @@ function countToZero(timestamp) {
 		let gap = (stage === "victory") ? 0 : 2;
 
 		if (img.complete && img.naturalWidth > 0) {
+
+			const sWidth = img.naturalWidth / COLS; // 160 / 4 = 40px
+			const sHeight = img.naturalHeight / ROWS; // 90 / 3 = 30px
+			const sx = tile.col * sWidth;
+			const sy = tile.row * sHeight;
+
 			ctx.drawImage(
-				img, tile.homeX - OFFSET_X, tile.homeY - OFFSET_Y, tile.w, tile.h,
+				img,
+				sx, sy, sWidth, sHeight,
 				-tile.w / 2, -tile.h / 2, tile.w - gap, tile.h - gap
 			);
 		} else {
@@ -88,15 +133,12 @@ function countToZero(timestamp) {
 		ctx.restore();
 	});
 
-	//draw the countdown
+	// draw the countdown
 	if (stage === "memorizing") {
-
 		ctx.font = "50px 'Tiny5-Regular'";
 		ctx.fillStyle = "white";
 		ctx.fillText(countdown, 50, 90);
-
 	}
-
 
 	if (stage === "memorizing" && timestamp - lastTick >= 1000) {
 		countdown -= 1;
@@ -108,17 +150,17 @@ function countToZero(timestamp) {
 		}
 	}
 
-	//recall the loop
+	// recall the loop
 	requestAnimationFrame(countToZero);
-
 }
 
+// inizialize first level only one time before the loop
+startLevel(0);
 document.fonts.ready.then(() => requestAnimationFrame(countToZero));
 
 console.log(tiles);
 
 function scatterTiles() {
-
 	let drawed = 0;
 	let attempts = 0;
 
@@ -129,12 +171,10 @@ function scatterTiles() {
 	// max random positioning of scattered tiles
 	const JITTER = 50;
 
-	while (drawed < 6 && attempts < 30) {
-
+	while (drawed < tiles.length && attempts < 30) {
 		let drawedTile = Math.floor(Math.random() * tiles.length);
 
 		if (tiles[drawedTile].placed) {
-
 			let tile = tiles[drawedTile];
 			tile.placed = false;
 
@@ -146,16 +186,13 @@ function scatterTiles() {
 			tile.angle = (Math.random() * 30 - 15) * (Math.PI / 180);
 
 			drawed++;
-
 		}
 
 		attempts++;
-
 	}
 }
 
-function getMousePos(e) { // mouseposition
-
+function getMousePos(e) { // mouse position
 	const rect = canva.getBoundingClientRect();
 	const scaleX = canva.width / rect.width;
 	const scaleY = canva.height / rect.height;
@@ -163,7 +200,6 @@ function getMousePos(e) { // mouseposition
 		x: (e.clientX - rect.left) * scaleX,
 		y: (e.clientY - rect.top) * scaleY
 	};
-
 }
 
 window.addEventListener("mousedown", (e) => { // GRAB
@@ -171,7 +207,7 @@ window.addEventListener("mousedown", (e) => { // GRAB
 
 	const mouse = getMousePos(e);
 
-	//cycle from right to left
+	// cycle from right to left
 	for (let i = tiles.length - 1; i >= 0; i--) {
 		const tile = tiles[i];
 
@@ -195,7 +231,7 @@ window.addEventListener("mousemove", (e) => { // DRAG
 
 	const mouse = getMousePos(e);
 
-	// the tile will be centerd to the pointer
+	// the tile will be centered to the pointer
 	draggedTile.x = mouse.x - draggedTile.w / 2;
 	draggedTile.y = mouse.y - draggedTile.h / 2;
 });
@@ -203,7 +239,7 @@ window.addEventListener("mousemove", (e) => { // DRAG
 window.addEventListener("mouseup", (e) => { // DROP and SNAP
 	if (!draggedTile) return;
 
-	//caculate the actual position of the tile and its home position
+	// calculate the actual position of the tile and its home position
 	const dx = draggedTile.x - draggedTile.homeX;
 	const dy = draggedTile.y - draggedTile.homeY;
 	const distance = Math.sqrt(dx * dx + dy * dy);
@@ -213,13 +249,12 @@ window.addEventListener("mouseup", (e) => { // DROP and SNAP
 		draggedTile.x = draggedTile.homeX;
 		draggedTile.y = draggedTile.homeY;
 		draggedTile.placed = true;
-
 		draggedTile.angle = 0;
 
 		checkWin();
 	}
 
-	//clean 
+	// clean 
 	draggedTile = null;
 });
 
@@ -247,15 +282,22 @@ function startLevel(index) {
 	currentLevelIndex = index;
 	const levelData = LEVELS[currentLevelIndex];
 
-	// load new memory
+	// memory load
 	img.src = levelData.src;
 
-	// timer for this level
+	// update narrative text
+	const textContainer = document.getElementById("story-box");
+	if (textContainer) {
+		textContainer.innerText = levelData.testo;
+	}
+
+	// timer reset
 	countdown = levelData.time;
 	lastTick = 0;
 	stage = "memorizing";
+	draggedTile = null;
 
-	// back to order
+	// all tiles aligned
 	tiles.forEach(tile => {
 		tile.x = tile.homeX;
 		tile.y = tile.homeY;
