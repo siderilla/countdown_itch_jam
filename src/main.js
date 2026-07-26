@@ -1,30 +1,59 @@
 import './style.css';
 
+const CANVAS_W = window.innerWidth;
+const CANVAS_H = window.innerHeight;
+
 const COLS = 4;
 const ROWS = 3;
 const TILE_W = 200;
 const TILE_H = 150;
-const OFFSET_X = 60;
+
+const OFFSET_X = (CANVAS_W - (COLS * TILE_W)) / 2; // 400px
 const OFFSET_Y = 135;
 
 const canva = document.getElementById("prologue");
 const ctx = canva.getContext("2d");
 
+// ensure the canvas element and 2D rendering context exist before proceeding
+if (!canva || !ctx) {
+	console.error("Canvas element or 2D context not found!");
+} else {
+	// apply the new width and height directly to the canvas element
+	canva.width = CANVAS_W;
+	canva.height = CANVAS_H;
+}
+
 ctx.imageSmoothingEnabled = false;
 
 let audioEnabled = true;
-const bgMusic = new Audio("/assets/bgm.mp3");
+const bgMusic = new Audio("/audio/ost.mp3");
+bgMusic.preload = "auto";
+bgMusic.volume = 0.4;
 bgMusic.loop = true;
-
-bgMusic.play().catch(() => console.log("Click to play audio"));
 
 function toggleAudio() {
 	audioEnabled = !audioEnabled;
+
 	if (audioEnabled) {
-		bgMusic.play().catch(() => console.log("Your browser is blocking audio source"));
-	} else {
+		startMusic();
+		bgMusic.play().catch(() => { });
+	}
+	else {
 		bgMusic.pause();
 	}
+}
+
+let musicStarted = false;
+
+function startMusic() {
+	if (musicStarted || !audioEnabled) return;
+
+	musicStarted = true;
+
+	bgMusic.currentTime = 0;
+	bgMusic.play().catch(() => {
+		console.log("Browser blocked audio");
+	});
 }
 
 function playSound(src) {
@@ -38,6 +67,7 @@ let lastTick = 0;
 let stage = "menu";
 let draggedTile = null;
 let mousePos = { x: 0, y: 0 };
+let victoryScale = 1.0; // scale factor for the gradual zoom animation on victory
 
 /////////////// - story box - /////////////////
 
@@ -49,7 +79,7 @@ const PROLOGUE_TEXTS = [
 
 const LEVELS = [
 	{
-		src: "/assets/memory1.png",
+		src: "/pics/memory1.png",
 		time: 5,
 		introTexts: [
 			"Wait... what's that shape?",
@@ -59,8 +89,8 @@ const LEVELS = [
 		outroText: "Oh! I loved being at the beach, diving and swimming all the time when I was little."
 	},
 	{
-		src: "/assets/memory2.png",
-		time: 4,
+		src: "/pics/memory2.png",
+		time: 5,
 		introTexts: [
 			"Another one? A shadow near the window...",
 			"It feels so warm, so familiar."
@@ -69,8 +99,8 @@ const LEVELS = [
 		outroText: "That's Ms. Peach looking at the window! I loved her so much, always so smart and cuddly."
 	},
 	{
-		src: "/assets/memory3.png",
-		time: 3,
+		src: "/pics/memory3.png",
+		time: 5,
 		introTexts: [
 			"This last one... my heart is beating so fast.",
 			"Why does this silhouette make me want to cry?"
@@ -84,7 +114,7 @@ const EPILOGUE_TEXTS = [
 	"The fog is gone now. I remember everything.",
 	"My time here has run out... but I'm not afraid anymore.",
 	"Because in the end, the only thing we truly leave behind is the love we gave.",
-	"And my life... was so full of it. I am ready. I am happy."
+	"And my life... was so full of it."
 ];
 
 /////////////// - story box finished - /////////////////
@@ -114,9 +144,9 @@ for (let row = 0; row < ROWS; row++) {
 }
 
 const UI_BUTTONS = {
-	start: { x: 440, y: 300, w: 400, h: 80, text: "[ START GAME ]" },
-	github: { x: 440, y: 420, w: 400, h: 60, text: "GitHub & Credits" },
-	audio: { x: 1120, y: 20, w: 140, h: 40 }
+	start: { x: (CANVAS_W - 400) / 2, y: 300, w: 400, h: 80, text: "[ START GAME ]" },
+	github: { x: (CANVAS_W - 400) / 2, y: 420, w: 400, h: 60, text: "GitHub & Credits" },
+	audio: { x: CANVAS_W - 160, y: 20, w: 140, h: 40 }
 };
 
 function countToZero(timestamp) {
@@ -125,7 +155,7 @@ function countToZero(timestamp) {
 
 	// background
 	ctx.fillStyle = "#000000";
-	ctx.fillRect(0, 0, 1280, 720);
+	ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
 	// smoothing is always disabled
 	ctx.imageSmoothingEnabled = false;
@@ -135,7 +165,7 @@ function countToZero(timestamp) {
 		ctx.font = "80px 'Tiny5-Regular'";
 		ctx.fillStyle = "white";
 		ctx.textAlign = "center";
-		ctx.fillText("PROLOGUE MEMORIES", 1280 / 2, 200);
+		ctx.fillText("Before I Go", CANVAS_W / 2, 200);
 
 		ctx.fillStyle = isInside(mousePos, UI_BUTTONS.start) ? "#6f00ff" : "#333";
 		ctx.fillRect(UI_BUTTONS.start.x, UI_BUTTONS.start.y, UI_BUTTONS.start.w, UI_BUTTONS.start.h);
@@ -164,6 +194,11 @@ function countToZero(timestamp) {
 		});
 	}
 
+	// smoothly increment scale factor during victory stage for a gentle zoom-in effect
+	if (stage === "victory" && victoryScale < 1.12) {
+		victoryScale += 0.0015;
+	}
+
 	// draw tiles
 	if (stage === "level_intro" || stage === "memorizing" || stage === "puzzle" || stage === "victory") {
 
@@ -174,6 +209,17 @@ function countToZero(timestamp) {
 			ctx.filter = "grayscale(50%) blur(4px)";
 		} else {
 			ctx.filter = "none";
+		}
+
+		ctx.save(); //save context state before applying victory zoom transformation
+
+		// scale from center of the grid when puzzle complete
+		if (stage === "victory") {
+			const gridCenterX = OFFSET_X + (COLS * TILE_W) / 2;
+			const gridCenterY = OFFSET_Y + (ROWS * TILE_H) / 2;
+			ctx.translate(gridCenterX, gridCenterY);
+			ctx.scale(victoryScale, victoryScale);
+			ctx.translate(-gridCenterX, -gridCenterY);
 		}
 
 		tiles.forEach(tile => {
@@ -207,26 +253,75 @@ function countToZero(timestamp) {
 				ctx.fillRect(-tile.w / 2, -tile.h / 2, tile.w - 2, tile.h - 2);
 			}
 
-			ctx.restore();
+			ctx.restore(); // restore context state after drawing zoomed tiles
 		});
+
+		ctx.restore(); // pop the victory zoom transformation so it never compounds across frames
 
 		ctx.filter = "none";
 	}
 
 	// draw the countdown
+	// theatrical countdown: large centered numbers that expand outward and fade out each second
 	if (stage === "memorizing") {
-		ctx.font = "50px 'Tiny5-Regular'";
-		ctx.fillStyle = "white";
-		ctx.fillText(countdown, 50, 90);
+		const elapsed = lastTick ? (timestamp - lastTick) : 0;
+		const progress = Math.min(1, elapsed / 1000); // 0.0 to 1.0 over each second
+		const alpha = Math.max(0, 1 - Math.pow(progress, 1.5)); // smooth fade out
+		const scale = 1 + progress * 0.8; // expanding zoom effect
+
+		ctx.save();
+		ctx.translate(CANVAS_W / 2, CANVAS_H / 2);
+		ctx.scale(scale, scale);
+		ctx.font = "160px 'Tiny5-Regular'";
+		ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+		ctx.textAlign = "center";
+		ctx.textBaseline = "middle";
+		ctx.fillText(countdown, 0, 0);
+		ctx.restore();
 	}
 
 	if (stage === "memorizing" && timestamp - lastTick >= 1000) {
 		countdown -= 1;
 		lastTick = timestamp;
 
-		if (countdown === 0) {
+		if (countdown > 0) {
+			playSound("/pics/tick.wav"); // play tick sound on every second
+		} else {
 			stage = "puzzle";
 			scatterTiles();
+		}
+	}
+
+	if (stage === "last_breath") {
+		ctx.fillStyle = "rgba(0, 0, 0, 0.18)";
+		ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+		ctx.save();
+		ctx.font = "120px 'Tiny5-Regular'";
+		ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+		ctx.textAlign = "center";
+		ctx.textBaseline = "middle";
+
+		const displayStr = lastBreathCountdown > 0 ? String(lastBreathCountdown) : "…";
+		ctx.fillText(displayStr, CANVAS_W / 2, CANVAS_H / 2 - 50);
+		ctx.restore();
+
+		if (!lastBreathTick) lastBreathTick = timestamp;
+
+		if (timestamp - lastBreathTick >= 1200) {
+			lastBreathCountdown -= 1;
+			lastBreathTick = timestamp;
+			playSound("/pics/heartbeat.wav");
+
+			if (lastBreathCountdown < 0) {
+				stage = "menu";
+				currentLevelIndex = 0;
+
+				const textContainer = document.getElementById("story-box");
+				if (textContainer) {
+					textContainer.innerText = "Ricompone i ricordi frammentati prima che svaniscano per sempre.";
+				}
+			}
 		}
 	}
 
@@ -244,9 +339,6 @@ function countToZero(timestamp) {
 // inizialize always from menu
 stage = "menu";
 const textContainer = document.getElementById("story-box");
-if (textContainer) {
-	textContainer.innerText = "Ricompone i ricordi frammentati prima che svaniscano per sempre.";
-}
 document.fonts.ready.then(() => requestAnimationFrame(countToZero));
 
 console.log(tiles);
@@ -256,31 +348,24 @@ function scatterTiles() {
 	let attempts = 0;
 
 	// the center of the plate for scattered tiles
-	const TRAY_X = 1000;
-	const TRAY_Y = 300;
+	const TRAY_X = CANVAS_W - 250;
+	const TRAY_Y = CANVAS_H / 2;
 
 	// max random positioning of scattered tiles
-	const JITTER = 50;
+	const JITTER = 70;
 
-	while (drawed < tiles.length && attempts < 30) {
-		let drawedTile = Math.floor(Math.random() * tiles.length);
-
-		if (tiles[drawedTile].placed) {
-			let tile = tiles[drawedTile];
-			tile.placed = false;
-
-			// random positioning around the plate
-			tile.x = TRAY_X + (Math.random() * JITTER - JITTER / 2);
-			tile.y = TRAY_Y + (Math.random() * JITTER - JITTER / 2);
-
-			// random rotation (looks realistic)
-			tile.angle = (Math.random() * 30 - 15) * (Math.PI / 180);
-
-			drawed++;
-		}
-
-		attempts++;
+	for (let i = tiles.length - 1; i > 0; i--) {
+		const j = Math.floor(Math.random() * (i + 1));
+		[tiles[i], tiles[j]] = [tiles[j], tiles[i]];
 	}
+
+	// casual positioning
+	tiles.forEach(tile => {
+		tile.placed = false;
+		tile.x = TRAY_X + (Math.random() * JITTER - JITTER / 2);
+		tile.y = TRAY_Y + (Math.random() * JITTER - JITTER / 2);
+		tile.angle = (Math.random() * 40 - 20) * (Math.PI / 180); // casual rotation
+	});
 }
 
 function getMousePos(e) { // mouse position
@@ -301,9 +386,27 @@ function isInside(pos, rect) {
 }
 
 window.addEventListener("mousedown", (e) => {
+	const mouse = getMousePos(e);
+
+	// check audio button click first so the user can toggle sound at any stage, including during dialogues
+	if (isInside(mouse, UI_BUTTONS.audio)) {
+		toggleAudio();
+		return;
+	}
+
+	startMusic();
+
+	// a click can complete instantly the senteces
+	if (isTyping) {
+		clearInterval(typewriterTimer);
+		const textContainer = document.getElementById("story-box");
+		if (textContainer) textContainer.textContent = currentFullText;
+		isTyping = false;
+		return;
+	}
+
 	// dialogue by click
 	if (stage === "prologue") {
-		if (isTyping) return; // wait for the entire sentence
 		currentDialogueIndex++;
 		if (currentDialogueIndex < PROLOGUE_TEXTS.length) {
 			showText(PROLOGUE_TEXTS[currentDialogueIndex]);
@@ -314,7 +417,6 @@ window.addEventListener("mousedown", (e) => {
 	}
 
 	if (stage === "level_intro") {
-		if (isTyping) return;
 		currentDialogueIndex++;
 		const currentLevel = LEVELS[currentLevelIndex];
 
@@ -324,38 +426,39 @@ window.addEventListener("mousedown", (e) => {
 			stage = "memorizing";
 			lastTick = 0;
 			showText(currentLevel.focusText);
+			playSound("/pics/tick.wav");
 		}
 		return;
 	}
 
+	// wait for user click after completing a puzzle
+	if (stage === "victory") {
+		if (currentLevelIndex < LEVELS.length - 1) {
+			startLevel(currentLevelIndex + 1);
+		} else {
+			stage = "gameover";
+			currentDialogueIndex = 0;
+			showText(EPILOGUE_TEXTS[0]);
+		}
+		return;
+	}
+
+	// return to main menu after finishing the epilogue
 	if (stage === "gameover") {
-		if (isTyping) return;
 		currentDialogueIndex++;
+
 		if (currentDialogueIndex < EPILOGUE_TEXTS.length) {
 			showText(EPILOGUE_TEXTS[currentDialogueIndex]);
 		} else {
-			stage = "end";
-			showText("");
+			startLastBreath();
 		}
-		return;
-	}
-
-	// if audio is on but browser doesn't want to, just click
-	if (audioEnabled && bgMusic.paused) {
-		bgMusic.play().catch(() => { });
-	}
-
-	const mouse = getMousePos(e);
-
-	if (isInside(mouse, UI_BUTTONS.audio)) {
-		toggleAudio();
 		return;
 	}
 
 	// menu buttons control
 	if (stage === "menu") {
 		if (isInside(mouse, UI_BUTTONS.start)) {
-			playSound("/assets/snap.wav");
+			playSound("/pics/snap.wav");
 			stage = "prologue";
 			currentDialogueIndex = 0;
 			showText(PROLOGUE_TEXTS[0]);
@@ -382,6 +485,10 @@ window.addEventListener("mousedown", (e) => {
 		) {
 			draggedTile = tile;
 			draggedTile.angle = 0;
+
+			// bring the dragged tile to the end of the array so it is rendered on top of all other tiles during drag
+			tiles.splice(i, 1);
+			tiles.push(draggedTile);
 			break;
 		}
 	}
@@ -425,19 +532,8 @@ function checkWin() {
 	if (isCompleted) {
 		console.log("Completed");
 		stage = "victory";
+		victoryScale = 1.0;
 		showText(LEVELS[currentLevelIndex].outroText);
-
-		setTimeout(() => {
-			// check if there are other levels
-			if (currentLevelIndex < LEVELS.length - 1) {
-				// next level
-				startLevel(currentLevelIndex + 1);
-			} else {
-				stage = "gameover";
-				currentDialogueIndex = 0;
-				showText(EPILOGUE_TEXTS[0]);
-			}
-		}, 5000);
 	}
 }
 
@@ -453,6 +549,7 @@ function startLevel(index) {
 	lastTick = 0;
 	stage = "level_intro";
 	draggedTile = null;
+	victoryScale = 1.0;
 	currentDialogueIndex = 0;
 	showText(levelData.introTexts[0]);
 
@@ -468,6 +565,21 @@ function startLevel(index) {
 let typewriterTimer = null;
 let currentDialogueIndex = 0;
 let isTyping = false;
+let currentFullText = ""; // store the full sentence to allow instant completion on click
+
+let lastBreathCountdown = 3;
+let lastBreathTick = 0;
+
+function startLastBreath() {
+	stage = "last_breath";
+	lastBreathCountdown = 3;
+	lastBreathTick = 0;
+
+	const textContainer = document.getElementById("story-box");
+	if (textContainer) {
+		textContainer.innerText = "";
+	}
+}
 
 function showText(text, onComplete = null) {
 	const textContainer = document.getElementById("story-box");
@@ -477,6 +589,7 @@ function showText(text, onComplete = null) {
 	textContainer.innerText = "";
 	if (typewriterTimer) clearInterval(typewriterTimer);
 
+	currentFullText = text; // save the target text for fast forwarding
 	let charIndex = 0;
 	isTyping = true;
 
