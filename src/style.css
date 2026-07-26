@@ -40,5 +40,5 @@ canvas #prologue {
 
 @font-face {
 	font-family: 'Tiny5-Regular';
-	src: url('/fonts/Tiny5-Regular.ttf')
+	src: url('../fonts/Tiny5-Regular.ttf')
 }

@@ -26,7 +26,7 @@ if (!canva || !ctx) {
 ctx.imageSmoothingEnabled = false;
 
 let audioEnabled = true;
-const bgMusic = new Audio("/audio/ost.mp3");
+const bgMusic = new Audio("./audio/ost.mp3");
 bgMusic.preload = "auto";
 bgMusic.volume = 0.4;
 bgMusic.loop = true;
@@ -79,7 +79,7 @@ const PROLOGUE_TEXTS = [
 
 const LEVELS = [
 	{
-		src: "/pics/memory1.png",
+		src: "./pics/memory1.png",
 		time: 5,
 		introTexts: [
 			"Wait... what's that shape?",
@@ -89,7 +89,7 @@ const LEVELS = [
 		outroText: "Oh! I loved being at the beach, diving and swimming all the time when I was little."
 	},
 	{
-		src: "/pics/memory2.png",
+		src: "./pics/memory2.png",
 		time: 5,
 		introTexts: [
 			"Another one? A shadow near the window...",
@@ -99,7 +99,7 @@ const LEVELS = [
 		outroText: "That's Ms. Peach looking at the window! I loved her so much, always so smart and cuddly."
 	},
 	{
-		src: "/pics/memory3.png",
+		src: "./pics/memory3.png",
 		time: 5,
 		introTexts: [
 			"This last one... my heart is beating so fast.",
@@ -285,7 +285,7 @@ function countToZero(timestamp) {
 		lastTick = timestamp;
 
 		if (countdown > 0) {
-			playSound("/pics/tick.wav"); // play tick sound on every second
+			playSound("./pics/tick.wav"); // play tick sound on every second
 		} else {
 			stage = "puzzle";
 			scatterTiles();
@@ -311,16 +311,13 @@ function countToZero(timestamp) {
 		if (timestamp - lastBreathTick >= 1200) {
 			lastBreathCountdown -= 1;
 			lastBreathTick = timestamp;
-			playSound("/pics/heartbeat.wav");
+			playSound("./pics/heartbeat.wav");
 
 			if (lastBreathCountdown < 0) {
 				stage = "menu";
 				currentLevelIndex = 0;
 
 				const textContainer = document.getElementById("story-box");
-				if (textContainer) {
-					textContainer.innerText = "Ricompone i ricordi frammentati prima che svaniscano per sempre.";
-				}
 			}
 		}
 	}
@@ -426,7 +423,7 @@ window.addEventListener("mousedown", (e) => {
 			stage = "memorizing";
 			lastTick = 0;
 			showText(currentLevel.focusText);
-			playSound("/pics/tick.wav");
+			playSound("./pics/tick.wav");
 		}
 		return;
 	}
@@ -458,7 +455,7 @@ window.addEventListener("mousedown", (e) => {
 	// menu buttons control
 	if (stage === "menu") {
 		if (isInside(mouse, UI_BUTTONS.start)) {
-			playSound("/pics/snap.wav");
+			playSound("./pics/snap.wav");
 			stage = "prologue";
 			currentDialogueIndex = 0;
 			showText(PROLOGUE_TEXTS[0]);
