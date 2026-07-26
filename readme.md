@@ -1,6 +1,7 @@
 #BEFORE I GO
-A short narrative puzzle game made in 4 days for the GMTK Game Jam 2026 (theme: Countdown).
 
+My first SOLO game project is done!!! (˶˃ ᵕ ˂˶)
+A short narrative puzzle game made in 4 days for the GMTK Game Jam 2026 (theme: Countdown).
 Someone is losing their memories. Fragments resurface as photographs: memorize each one before the countdown runs out, then piece it back together.
 
 #How to play
@@ -14,3 +15,4 @@ Click through the dialogues, memorize the photo before the timer ends, then drag
 - LABS Assets for Ableton
 
 You can play it on itch.io: https://siderilla.itch.io/beforeigo
+Enjoy ◝(ᵔᗜᵔ)◜
