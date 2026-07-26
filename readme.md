@@ -12,3 +12,5 @@ Click through the dialogues, memorize the photo before the timer ends, then drag
 - Music and sound composed in Ableton Live by me
 - Font: Tiny5 (Google Fonts)
 - LABS Assets for Ableton
+
+You can play it on itch.io: https://siderilla.itch.io/beforeigo
