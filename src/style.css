@@ -42,3 +42,33 @@ canvas #prologue {
 	font-family: 'Tiny5-Regular';
 	src: url('../fonts/Tiny5-Regular.ttf')
 }
+
+/* =========================
+   DESKTOP ONLY NOTICE
+   the game needs mouse-precision drag & drop and a 1800x900 canvas
+   that isn't adapted to small/touch screens yet, so on phones and
+   tablets (or any narrow window) we show this instead of the game
+   ========================= */
+
+#mobile-notice {
+	display: none;
+}
+
+@media (pointer: coarse), (max-width: 700px) {
+	#app {
+		display: none;
+	}
+
+	#mobile-notice {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 100vh;
+		padding: 2rem;
+		box-sizing: border-box;
+		text-align: center;
+		font-family: 'Tiny5-Regular', monospace;
+		font-size: 24px;
+		line-height: 1.6;
+	}
+}
